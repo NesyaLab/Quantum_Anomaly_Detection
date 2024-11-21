@@ -1,4 +1,4 @@
-"Detection visualization functions"
+"Detection amd visualization functions"
 
 
 
@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from statistics import mean
 import random
 import itertools
-
+from AD_QAOA import AD_QAOA
 
 
 
