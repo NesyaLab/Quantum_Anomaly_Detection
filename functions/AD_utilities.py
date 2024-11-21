@@ -1,4 +1,4 @@
-"Utilites functions"
+"Anomaly detection Utilites functions"
 
 
 
@@ -13,7 +13,10 @@ import random
 import gdown
 import time
 import itertools
-
+from AD_QAOA import AD_QAOA 
+import functions.AD_preprocessing as preprocessing
+import functions.AD_detection as detection
+import functions.AD_training as training
 
 
 
@@ -38,7 +41,7 @@ def plot_training_time_series(dataset_train):
 
 
 
-def plot_test_time_series(dataset_train):
+def plot_test_time_series(dataset_test):
     """
     Plots the test time series.
 
@@ -68,9 +71,11 @@ def plot_training_time_series_batches(dataset_train, overlap=2, batch_sizes=[7, 
         overlap (int, optional): The number of overlapping samples between consecutive batches. Default is 2.
         batch_sizes (list of int, optional): List of possible batch sizes to test for splitting the dataset. 
                                              Default is [7, 8, 9].
-
     """
-    batches, best_batch_size = split_dataset_with_best_batch_size(dataset_train, overlap, batch_sizes)
+    # print("Inside plot_training_time_series_batches:") # Debug
+    # print("split_dataset_with_best_batch_size:", split_dataset_with_best_batch_size)  # Debug
+
+    batches, best_batch_size = preprocessing.split_dataset_with_best_batch_size(dataset_train, overlap, batch_sizes)
 
     plt.figure(figsize=(10, 6))
 
@@ -87,6 +92,7 @@ def plot_training_time_series_batches(dataset_train, overlap=2, batch_sizes=[7, 
     plt.ylabel('Value')
     plt.title('Training Time Series Divided into Batches')
     plt.show()
+
 
 
 
@@ -149,26 +155,39 @@ def execute_batch_processing(batches, alpha_range=np.linspace(-1, 0, 10), select
 
         start_batch_time = time.time()
 
-        batch_results = rank_grid_search(batch, alpha_range=alpha_range)
+        batch_results = training.rank_grid_search(batch, alpha_range=alpha_range)
+        
+        if not batch_results:
+            print(f"Warning: rank_grid_search did not produce results for batch {i}. Skipping this batch.")
+            all_batch_results.append([])  
+            continue  
+        
+        print(f"Batch {i} results: {batch_results[0]}")
         all_batch_results.append(batch_results)
 
         end_batch_time = time.time()
         batch_time = end_batch_time - start_batch_time
 
         print(f"Batch {i} completed in {batch_time:.2f} seconds.")
-        print(f"Batch {i} results: {batch_results[0]}")
 
     end_total_time = time.time()
     total_time = end_total_time - start_total_time
 
-    alpha_mean, beta_mean = calculate_mean_alpha_beta(all_batch_results, selected_position)
+    valid_results = [result for result in all_batch_results if result]
+    
+    if valid_results:
+        alpha_mean, beta_mean = training.calculate_mean_alpha_beta(valid_results, selected_position)
+        print(f"\nMean Alpha: {alpha_mean}, Mean Beta: {beta_mean}")
+    else:
+        print("No valid results were found across all batches.")
+        return None, None, [], [], []
 
-    print(f"\nMean Alpha: {alpha_mean}, Mean Beta: {beta_mean}")
     print(f"Process completed in {total_time:.2f} seconds.")
 
-    alpha_values, beta_values, normalized_rank_values = collect_normalized_rank_data(all_batch_results)
+    alpha_values, beta_values, normalized_rank_values = training.collect_normalized_rank_data(valid_results)
 
     return alpha_mean, beta_mean, alpha_values, beta_values, normalized_rank_values
+
 
 
 
@@ -187,12 +206,14 @@ def execute_qaoa_on_batches(batches, model_name='cubic', model_params={}, alpha_
     Returns:
         unique_centers_with_radii (list of tuples): A list of unique centers with associated radii across all batches.
     """
+    print("\nInitializing the final run...")
+    
     all_centers_with_radii = []
 
     for i, batch in enumerate(batches, 1):
-        print(f"Executing QAOA model on batch {i}/{len(batches)}...")
+        print(f"\nExecuting QAOA model on batch {i}/{len(batches)}...")
 
-        ad_qaoa = AD_QAOA(X=batch, model_name=model_name, model_params=model_params, correzione_raggio=True, 
+        ad_qaoa = AD_QAOA(X=batch, model_name=model_name, model_params=model_params, radius_adjustment=True, 
                           alpha=alpha_mean, beta=beta_mean)
 
         top_n_states, qaoa_solution = ad_qaoa.solve_qubo()
@@ -207,7 +228,7 @@ def execute_qaoa_on_batches(batches, model_name='cubic', model_params={}, alpha_
         print(f"Batch {i} - QAOA cost: {qaoa_cost}, Classical optimal solution: {classical_sol}, Approximation ratio: {approximation_ratio}")
 
         # (Optional) Plot various components
-        ad_qaoa.plot_time_series()
+        # ad_qaoa.plot_time_series()
         # ad_qaoa.plot_model()
         # ad_qaoa.visualize_anomalies()
 
@@ -225,7 +246,7 @@ def execute_qaoa_on_batches(batches, model_name='cubic', model_params={}, alpha_
             unique_centers_with_radii.append(center_with_radius)
             seen_timestamps.add(timestamp)
 
-    print("\nUnique centers with radii across all batches:")
+    print("\nResulting Set Coverage:")
     for i, centers_radii in enumerate(unique_centers_with_radii):
         print(f"Center {i}: {centers_radii}")
 
