@@ -1,7 +1,4 @@
 # Quantum Anomaly Detection
-
-## Overview
-
 This repository contains the implementation of an hybrid Quantum-Classical Anomaly Detection algorithm, which leverages quantum computing techniques to detect anomalies in time series data. The project is built around Quantum Approximate Optimization Algorithm (QAOA) and involves generating datasets, constructing quantum circuits, and optimizing parameters to identify anomalies.
 
 ## What's in here?
