@@ -18,8 +18,6 @@ In this repository you can find:
 If you want to use the code in this repository in your projects, please cite explicitely our work, and
 - Clone this repository with `git clone https://github.com/NesyaLab/Quantum_Anomaly_Detection`.
 - Install the requirements with `pip install -r requirements.txt`.
-  
-Before running any experiments, ensure that the `config.txt` file is correctly set up.
 
 ## License
 This project is licensed under the MIT License.
